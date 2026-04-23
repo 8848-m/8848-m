@@ -1,26 +1,126 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>News</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart News Dashboard</title>
+
+<style>
+body { margin:0; font-family: Arial; display:flex; }
+
+/* Sidebar */
+.sidebar {
+  width:220px; background:#1f2937; color:white; height:100vh; padding:15px;
+}
+.sidebar h2 { font-size:18px; }
+.sidebar div {
+  margin:10px 0; cursor:pointer; padding:8px; border-radius:6px;
+}
+.sidebar div:hover { background:#374151; }
+
+/* Main */
+.main {
+  flex:1; padding:20px; background:#f3f4f6;
+}
+
+.news {
+  background:white; padding:12px; margin:10px 0;
+  border-radius:8px;
+}
+.news a {
+  text-decoration:none; color:#111827; font-weight:bold;
+}
+.source { font-size:12px; color:gray; }
+
+</style>
 </head>
+
 <body>
 
-<h1>Latest Global News</h1>
-<div id="news"></div>
+<div class="sidebar">
+  <h2>📊 Categories</h2>
+  <div onclick="filterNews('all')">All</div>
+  <div onclick="filterNews('politics')">Politics</div>
+  <div onclick="filterNews('economy')">Economy</div>
+  <div onclick="filterNews('tech')">Tech</div>
+  <div onclick="filterNews('world')">World</div>
+</div>
+
+<div class="main">
+  <h1>🧠 Smart News Feed</h1>
+  <div id="news"></div>
+</div>
 
 <script>
-fetch('https://api.rss2json.com/v1/api.json?rss_url=https://rss.cnn.com/rss/edition.rss')
-.then(res => res.json())
-.then(data => {
-  let output = '';
-  data.items.slice(0,10).forEach(item => {
-    output += `<p><a href="${item.link}" target="_blank">${item.title}</a></p>`;
-  });
-  document.getElementById("news").innerHTML = output;
-});
-</script>
+const feeds = [
+  "https://rss.cnn.com/rss/edition.rss",
+  "https://feeds.bbci.co.uk/news/rss.xml",
+  "https://feeds.reuters.com/reuters/topNews",
+  "https://www.aljazeera.com/xml/rss/all.xml"
+];
 
-<a href="index.html">Back</a>
+let globalNews = [];
+
+/* Category detection */
+function detectCategory(title){
+  title = title.toLowerCase();
+
+  if(title.includes("election") || title.includes("government")) return "politics";
+  if(title.includes("market") || title.includes("economy") || title.includes("inflation")) return "economy";
+  if(title.includes("ai") || title.includes("tech") || title.includes("software")) return "tech";
+  return "world";
+}
+
+/* Fetch feeds */
+const fetchFeed = url =>
+  fetch(`https://api.rss2json.com/v1/api.json?rss_url=${url}`)
+    .then(res => res.json())
+    .then(data => data.items.map(item => ({
+      title: item.title,
+      link: item.link,
+      source: data.feed.title,
+      category: detectCategory(item.title)
+    })));
+
+Promise.all(feeds.map(fetchFeed))
+.then(results => {
+  let allNews = results.flat();
+
+  /* Remove duplicates */
+  const seen = new Set();
+  allNews = allNews.filter(item => {
+    let key = item.title.toLowerCase().replace(/[^\w\s]/gi,'');
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  globalNews = allNews;
+  displayNews(allNews);
+});
+
+/* Display */
+function displayNews(list){
+  let html = '';
+  list.slice(0,40).forEach(item=>{
+    html += `
+      <div class="news">
+        <a href="${item.link}" target="_blank">${item.title}</a>
+        <div class="source">${item.source} • ${item.category}</div>
+      </div>
+    `;
+  });
+  document.getElementById("news").innerHTML = html;
+}
+
+/* Filter */
+function filterNews(cat){
+  if(cat === 'all'){
+    displayNews(globalNews);
+  } else {
+    displayNews(globalNews.filter(n => n.category === cat));
+  }
+}
+</script>
 
 </body>
 </html>
