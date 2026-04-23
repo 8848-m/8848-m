@@ -1,1 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>News</title>
+</head>
+<body>
 
+<h1>Latest Global News</h1>
+<div id="news"></div>
+
+<script>
+fetch('https://api.rss2json.com/v1/api.json?rss_url=https://rss.cnn.com/rss/edition.rss')
+.then(res => res.json())
+.then(data => {
+  let output = '';
+  data.items.slice(0,10).forEach(item => {
+    output += `<p><a href="${item.link}" target="_blank">${item.title}</a></p>`;
+  });
+  document.getElementById("news").innerHTML = output;
+});
+</script>
+
+<a href="index.html">Back</a>
+
+</body>
+</html>
