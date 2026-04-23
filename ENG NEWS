@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Universal News Dashboard</title>
+
+<style>
+body { font-family: Arial; background:#f4f6f8; padding:20px; }
+.news { background:white; padding:12px; margin:10px 0; border-radius:8px; }
+.news a { text-decoration:none; color:#1a0dab; font-weight:bold; }
+.source { font-size:12px; color:gray; }
+</style>
+</head>
+
+<body>
+
+<h1>🌐 Smart News Feed (All Sources)</h1>
+<div id="news"></div>
+
+<script>
+/* 🔷 ADD ANYTHING HERE: RSS OR WEBSITE URL */
+const sources = [
+  "https://rss.cnn.com/rss/edition.rss",   // RSS
+  "https://feeds.bbci.co.uk/news/rss.xml", // RSS
+  "https://www.aljazeera.com",             // Website
+  "https://www.theguardian.com/world"      // Website
+];
+
+/* 🔷 Convert website → RSS automatically */
+function toRSS(url){
+  if(url.includes("rss") || url.includes("xml")){
+    return url; // already RSS
+  }
+  return `https://api.rss2json.com/v1/api.json?rss_url=https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`;
+}
+
+/* 🔷 Fetch data */
+const fetchFeed = url =>
+  fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`)
+    .then(res => res.json())
+    .then(data => data.items.map(item => ({
+      title: item.title.trim(),
+      link: item.link,
+      source: data.feed.title
+    })))
+    .catch(() => []);
+
+/* 🔷 Process all */
+Promise.all(sources.map(fetchFeed))
+.then(results => {
+  let allNews = results.flat();
+
+  /* 🔷 Remove duplicates */
+  const seen = new Set();
+  allNews = allNews.filter(item => {
+    let key = item.title.toLowerCase().replace(/[^\w\s]/gi,'');
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  /* 🔷 Sort (latest-ish logic) */
+  allNews.sort((a,b)=> a.title.localeCompare(b.title));
+
+  /* 🔷 Display */
+  let html = '';
+  allNews.slice(0,40).forEach(item=>{
+    html += `
+      <div class="news">
+        <a href="${item.link}" target="_blank">${item.title}</a>
+        <div class="source">${item.source}</div>
+      </div>
+    `;
+  });
+
+  document.getElementById("news").innerHTML = html;
+});
+</script>
+
+</body>
+</html>
