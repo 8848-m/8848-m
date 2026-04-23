@@ -6,120 +6,106 @@
 
 <style>
 body { margin:0; font-family: Arial; display:flex; }
-
-/* Sidebar */
 .sidebar {
-  width:220px; background:#1f2937; color:white; height:100vh; padding:15px;
+  width:200px; background:#1f2937; color:white; height:100vh; padding:15px;
 }
-.sidebar h2 { font-size:18px; }
-.sidebar div {
-  margin:10px 0; cursor:pointer; padding:8px; border-radius:6px;
-}
-.sidebar div:hover { background:#374151; }
-
-/* Main */
-.main {
-  flex:1; padding:20px; background:#f3f4f6;
-}
-
-.news {
-  background:white; padding:12px; margin:10px 0;
-  border-radius:8px;
-}
-.news a {
-  text-decoration:none; color:#111827; font-weight:bold;
-}
+.sidebar div { margin:10px 0; cursor:pointer; }
+.main { flex:1; padding:20px; background:#f3f4f6; }
+.news { background:white; padding:10px; margin:10px 0; border-radius:6px; }
+.news a { text-decoration:none; color:black; font-weight:bold; }
 .source { font-size:12px; color:gray; }
-
 </style>
 </head>
 
 <body>
 
 <div class="sidebar">
-  <h2>📊 Categories</h2>
+  <h3>Categories</h3>
   <div onclick="filterNews('all')">All</div>
   <div onclick="filterNews('politics')">Politics</div>
-  <div onclick="filterNews('economy')">Economy</div>
   <div onclick="filterNews('tech')">Tech</div>
-  <div onclick="filterNews('world')">World</div>
 </div>
 
 <div class="main">
-  <h1>🧠 Smart News Feed</h1>
-  <div id="news"></div>
+  <h1>News Feed</h1>
+  <div id="news">Loading...</div>
 </div>
 
 <script>
 const feeds = [
-  "https://rss.cnn.com/rss/edition.rss",
   "https://feeds.bbci.co.uk/news/rss.xml",
-  "https://feeds.reuters.com/reuters/topNews",
-  "https://www.aljazeera.com/xml/rss/all.xml"
+  "https://rss.cnn.com/rss/edition.rss"
 ];
 
 let globalNews = [];
 
-/* Category detection */
-function detectCategory(title){
-  title = title.toLowerCase();
+/* safer fetch */
+async function fetchFeed(url){
+  try{
+    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+    const text = await res.text();
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(text, "text/xml");
 
-  if(title.includes("election") || title.includes("government")) return "politics";
-  if(title.includes("market") || title.includes("economy") || title.includes("inflation")) return "economy";
-  if(title.includes("ai") || title.includes("tech") || title.includes("software")) return "tech";
-  return "world";
+    const items = [...xml.querySelectorAll("item")].map(item => ({
+      title: item.querySelector("title").textContent,
+      link: item.querySelector("link").textContent
+    }));
+
+    return items;
+  }catch(e){
+    console.log("Feed failed:", url);
+    return [];
+  }
 }
 
-/* Fetch feeds */
-const fetchFeed = url =>
-  fetch(`https://api.rss2json.com/v1/api.json?rss_url=${url}`)
-    .then(res => res.json())
-    .then(data => data.items.map(item => ({
-      title: item.title,
-      link: item.link,
-      source: data.feed.title,
-      category: detectCategory(item.title)
-    })));
+/* category */
+function getCategory(title){
+  title = title.toLowerCase();
+  if(title.includes("election")) return "politics";
+  if(title.includes("ai") || title.includes("tech")) return "tech";
+  return "general";
+}
 
-Promise.all(feeds.map(fetchFeed))
-.then(results => {
-  let allNews = results.flat();
+/* load */
+async function loadNews(){
+  let results = await Promise.all(feeds.map(fetchFeed));
+  let all = results.flat();
 
-  /* Remove duplicates */
-  const seen = new Set();
-  allNews = allNews.filter(item => {
-    let key = item.title.toLowerCase().replace(/[^\w\s]/gi,'');
+  /* remove duplicates */
+  let seen = new Set();
+  all = all.filter(n=>{
+    let key = n.title.toLowerCase();
     if(seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  globalNews = allNews;
-  displayNews(allNews);
-});
+  globalNews = all.map(n=>({...n, category:getCategory(n.title)}));
 
-/* Display */
-function displayNews(list){
-  let html = '';
-  list.slice(0,40).forEach(item=>{
+  display(globalNews);
+}
+
+/* display */
+function display(list){
+  let html="";
+  list.slice(0,30).forEach(n=>{
     html += `
       <div class="news">
-        <a href="${item.link}" target="_blank">${item.title}</a>
-        <div class="source">${item.source} • ${item.category}</div>
-      </div>
-    `;
+        <a href="${n.link}" target="_blank">${n.title}</a>
+        <div class="source">${n.category}</div>
+      </div>`;
   });
   document.getElementById("news").innerHTML = html;
 }
 
-/* Filter */
+/* filter */
 function filterNews(cat){
-  if(cat === 'all'){
-    displayNews(globalNews);
-  } else {
-    displayNews(globalNews.filter(n => n.category === cat));
-  }
+  if(cat==="all") display(globalNews);
+  else display(globalNews.filter(n=>n.category===cat));
 }
+
+loadNews();
 </script>
 
 </body>
